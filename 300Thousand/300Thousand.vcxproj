@@ -60,8 +60,12 @@
     <ClInclude Include="VideoMux.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Bounding_fs.glsl" />
+    <None Include="Bounding_vs.glsl" />
     <None Include="instanced_skinning_fs.glsl" />
     <None Include="instanced_skinning_vs.glsl" />
+    <None Include="Plain_fs.glsl" />
+    <None Include="Plain_vs.glsl" />
     <None Include="skinning_fs.glsl" />
     <None Include="skinning_vs.glsl" />
   </ItemGroup>

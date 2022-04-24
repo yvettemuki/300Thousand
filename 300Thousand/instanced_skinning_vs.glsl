@@ -1,5 +1,4 @@
 #version 430            
-layout(location = 0) uniform mat4 M;
 layout(location = 1) uniform float time;
 layout(location = 2) uniform int num_bones = 0;
 layout(location = 3) uniform int Mode;
@@ -50,7 +49,8 @@ out VertexData
 } outData;
 
 int getCellIndex(int bone_id, int row) {
-	return (frame_number * num_bones * 4) + (bone_id * 4) + row;
+	int frameFinal = int(mod(frame_number + (gl_InstanceID * 70), 150));
+	return (frameFinal * num_bones * 4) + (bone_id * 4) + row;
 }
 
 vec2 getTexCoord(int bone_id, int row) {
@@ -102,85 +102,68 @@ mat4 getBoneMatrixFromTexture(int bone_id) {
 
 void main(void)
 {
-	if (type == 1)
-	{
-		mat4 M = model_matrix;
+	mat4 M = model_matrix;
 		//mat4 M = mat4(vec4(1.0, 0.0, 0.0, 0.0), vec4(0.0, 1.0, 0.0, 0.0), vec4(0.0, 0.0, 1.0, 0.0), vec4(modelMatPos, 1.0));
-		if(Mode > 0)
-		{
-			mat4 Skinning = mat4(1.0);
-			/*if (Mode > 2) {
-				if (num_bones > 0)
-				{
-					//Linear blend skinning
-					Skinning = bone_xform[bone_id_attrib[0]] * weight_attrib[0];
-					Skinning += bone_xform[bone_id_attrib[1]] * weight_attrib[1];
-					Skinning += bone_xform[bone_id_attrib[2]] * weight_attrib[2];
-					Skinning += bone_xform[bone_id_attrib[3]] * weight_attrib[3];
-				}
+	if(Mode > 0)
+	{
+		mat4 Skinning = mat4(1.0);
+		/*if (Mode > 2) {
+			if (num_bones > 0)
+			{
+				//Linear blend skinning
+				Skinning = bone_xform[bone_id_attrib[0]] * weight_attrib[0];
+				Skinning += bone_xform[bone_id_attrib[1]] * weight_attrib[1];
+				Skinning += bone_xform[bone_id_attrib[2]] * weight_attrib[2];
+				Skinning += bone_xform[bone_id_attrib[3]] * weight_attrib[3];
+			}
 
-				//for debug visualization of bone weights
-				/*outData.w_debug = 0.0;
-				for (int i = 0; i < 4; i++)
+			//for debug visualization of bone weights
+			/*outData.w_debug = 0.0;
+			for (int i = 0; i < 4; i++)
+			{
+				if (bone_id_attrib[i] == debug_id)
 				{
-					if (bone_id_attrib[i] == debug_id)
-					{
-						outData.w_debug = weight_attrib[i];
-					}
+					outData.w_debug = weight_attrib[i];
 				}
 			}
-			else {*/
-				if (num_bones > 0)
-				{
-					//Linear blend skinning
-					Skinning = getBoneMatrixFromTexture(bone_id_attrib[0]) * weight_attrib[0];
-					Skinning += getBoneMatrixFromTexture(bone_id_attrib[1]) * weight_attrib[1];
-					Skinning += getBoneMatrixFromTexture(bone_id_attrib[2]) * weight_attrib[2];
-					Skinning += getBoneMatrixFromTexture(bone_id_attrib[3]) * weight_attrib[3];
-				}
+		}
+		else {*/
+			if (num_bones > 0)
+			{
+				//Linear blend skinning
+				Skinning = getBoneMatrixFromTexture(bone_id_attrib[0]) * weight_attrib[0];
+				Skinning += getBoneMatrixFromTexture(bone_id_attrib[1]) * weight_attrib[1];
+				Skinning += getBoneMatrixFromTexture(bone_id_attrib[2]) * weight_attrib[2];
+				Skinning += getBoneMatrixFromTexture(bone_id_attrib[3]) * weight_attrib[3];
+			}
 
-				//for debug visualization of bone weights
-				/*outData.w_debug = 0.0;
-				for (int i = 0; i < 4; i++)
+			//for debug visualization of bone weights
+			/*outData.w_debug = 0.0;
+			for (int i = 0; i < 4; i++)
+			{
+				if (bone_id_attrib[i] == debug_id)
 				{
-					if (bone_id_attrib[i] == debug_id)
-					{
-						outData.w_debug = weight_attrib[i];
-					}
-				}*/
-			//}
+					outData.w_debug = weight_attrib[i];
+				}
+			}*/
+		//}
 		
 
-			vec4 anim_pos = Skinning * vec4(pos_attrib, 1.0);
+		vec4 anim_pos = Skinning * vec4(pos_attrib, 1.0);
 
-			gl_Position  = PV*M * anim_pos;
-			outData.pw = vec3(M*anim_pos);
+		gl_Position  = PV*M * anim_pos;
+		outData.pw = vec3(M*anim_pos);
 
-			vec4 anim_normal = Skinning * vec4(normal_attrib, 0.0);
-			outData.nw      = vec3(M * anim_normal);
-		}
-		else //show mesh in rest pose
-		{
-			gl_Position  = PV*M * vec4(pos_attrib, 1.0);
-			outData.pw = vec3(M*vec4(pos_attrib, 1.0));
-			outData.nw   = vec3(M * vec4(normal_attrib, 0.0));
-		}
-	
-		outData.tex_coord = tex_coord_attrib;
+		vec4 anim_normal = Skinning * vec4(normal_attrib, 0.0);
+		outData.nw      = vec3(M * anim_normal);
 	}
-
-	if (type == 2)
+	else //show mesh in rest pose
 	{
-		// bounding box
-		gl_Position = PV * vec4(pos_attrib, 1.0);
+		gl_Position  = PV*M * vec4(pos_attrib, 1.0);
+		outData.pw = vec3(M*vec4(pos_attrib, 1.0));
+		outData.nw   = vec3(M * vec4(normal_attrib, 0.0));
 	}
 	
-	if (type == 3)
-	{
-		// arena plane
-		gl_Position = PV * M * quad[gl_VertexID];
-		outData.tex_coord = 0.5 * (quad[gl_VertexID].xy + vec2(1.0));
-		outData.pw = vec3(M * quad[gl_VertexID]);
-		outData.nw = vec3(M * vec4(0.0, 1.0, 0.0, 0.0));
-	}
+	outData.tex_coord = tex_coord_attrib;
+
 }

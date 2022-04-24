@@ -435,7 +435,7 @@ GLuint InstancedSkinnedMesh::createMatPosVBO(int instanceCount) {
 
 void InstancedSkinnedMesh::RenderInstanced(int instanceCount)
 {
-    //glBindVertexArray(m_VAO);
+    glBindVertexArray(m_VAO);
 
     for (int i = 0; i < m_pScene->mNumAnimations; i++) {
         glActiveTexture(textureBindValues[i]);
@@ -463,7 +463,7 @@ void InstancedSkinnedMesh::RenderInstanced(int instanceCount)
     }
 
     // Make sure the VAO is not changed from the outside    
-    //glBindVertexArray(0);
+    glBindVertexArray(0);
 }
 
 unsigned int InstancedSkinnedMesh::FindPosition(float AnimationTime, const aiNodeAnim* pNodeAnim)

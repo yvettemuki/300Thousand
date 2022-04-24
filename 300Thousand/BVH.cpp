@@ -390,7 +390,6 @@ void BVH::drawBVH()
 	{
 		glBindVertexArray(vaos[i]);
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-		glUniform1i(UniformLoc::type, 2);
 		//glDrawArrays(GL_TRIANGLES, 0, 36);
 		glDrawArrays(GL_QUADS, 0, 24);
 		glBindVertexArray(0);

@@ -38,7 +38,16 @@ const char* const window_title = "Skinning Demo";
 
 static const std::string vertex_shader("instanced_skinning_vs.glsl");
 static const std::string fragment_shader("instanced_skinning_fs.glsl");
+
+static const std::string ground_vertex_shader("Plain_vs.glsl");
+static const std::string ground_fragment_shader("Plain_fs.glsl");
+
+static const std::string bounding_vertex_shader("Bounding_vs.glsl");
+static const std::string bounding_fragment_shader("Bounding_fs.glsl");
+
 GLuint shader_program = -1;
+GLuint ground_shader_program = -1;
+GLuint bounding_shader_program = -1;
 
 //static const std::string mesh_name = "stormtrooper.dae";
 //static const std::string mesh_name = "cowboy.dae";
@@ -55,6 +64,8 @@ Camera* camera;
 // Attribute Less
 GLuint attribless_arena_vao = -1;
 
+bool renderingOrCollision = false; //true = rendering
+
 // IMGUI 
 float yAngle = 0.0f;
 float xAngle = 0.0f;
@@ -68,6 +79,7 @@ bool enableBVH = false;
 bool enableDynamic = false;
 
 // IDs for BVH and AABB
+//GLuint model_matrix_buffer_rendering = -1;
 GLuint model_matrix_buffer = -1;
 GLuint aabbVAOs[INSTANCE_NUM] = { -1 };
 GLuint aabbVBOs[INSTANCE_NUM] = { -1 };
@@ -84,6 +96,11 @@ unsigned int width = 256;
 
 int bits = 128;
 int currentAnimationIndex = 0;
+
+int instanceCount = 64;
+
+vector<glm::mat4> model_matrix_data;
+vector<glm::mat4> model_matrix_data_rendering;
 
 struct LightUniforms
 {
@@ -126,53 +143,6 @@ float random(float min, float max)
 
 void collisionDetection()
 {
-	//for (int i = 0; i < INSTANCE_NUM; i++)
-	//{
-	//    vector<int> collisions = bvh->CollisionDetection(objects[i].aabb, i);
-
-	//    for (int j = 0; j < collisions.size(); j++)
-	//    {
-	//        int k = collisions[j];
-	//        AABB aabb_1 = objects[i].aabb;
-	//        AABB aabb_2 = objects[k].aabb;
-
-	//        // difference of distance in x and z
-	//        glm::vec3 deltaArea = aabb_1.intersection(aabb_2);
-
-	//        // update position
-	//        // calculate the first collision axis
-	//        glm::vec3 velocity_delta = objects[i].velocity + objects[k].velocity;
-	//        float delta_time_x = deltaArea.x / velocity_delta.x;
-	//        float delta_time_z = deltaArea.z / velocity_delta.z;
-	//        if (delta_time_x <= delta_time_z)
-	//        {
-	//            // x direction is the hit normal
-	//            objects[i].currPos.x -= objects[i].velocity.x * delta_time;
-	//            objects[k].currPos.x -= objects[k].velocity.x * delta_time;
-
-	//            // update velocity
-	//            objects[i].velocity.x = -objects[i].velocity.x;
-	//            objects[k].velocity.x = -objects[k].velocity.x;
-	//        }
-	//        else
-	//        {
-	//            // z direction is the hit normal
-	//            objects[i].currPos.z -= objects[i].velocity.z * delta_time;
-	//            objects[k].currPos.z -= objects[k].velocity.z * delta_time;
-
-	//            // update velocity
-	//            objects[i].velocity.z = -objects[i].velocity.z;
-	//            objects[k].velocity.z = -objects[k].velocity.z;
-	//        }
-
-
-	//        // update bounding box
-	//        glm::vec3 scale = glm::vec3(mScale * mesh_data.mScaleFactor);
-	//        objects[i].aabb.update(objects[i].currPos, scale);
-	//        objects[k].aabb.update(objects[k].currPos, scale);
-	//    }
-	//}
-
 	for (int i = 0; i < INSTANCE_NUM; i++)
 	{
 		for (int j = i + 1; j < INSTANCE_NUM; j++)
@@ -300,6 +270,23 @@ void updateBoundingBox()
 
 //For an explanation of this program's structure see https://www.glfw.org/docs/3.3/quick.html 
 
+glm::vec3* createMatPosInstanceArray(int instanceCount)
+{
+	glm::vec3* matPos = new glm::vec3[instanceCount];
+
+	int rows = (int)std::sqrt(instanceCount);
+
+	for (int i = 0; i < instanceCount; i++)
+	{
+		glm::vec3 tran = glm::vec3(((i % rows) - 1) * 10, ((i / rows) - 1) * 10, 0);
+		matPos[i] = tran;// glm::vec4((i % rows) * 0.3f, (i / rows) * 0.3f, i / (float)instanceCount, 1);
+	}
+
+	return matPos;
+}
+
+bool cachedEnableDynamic = false;
+
 void draw_gui(GLFWwindow* window)
 {
 	//Begin ImGui Frame
@@ -339,17 +326,29 @@ void draw_gui(GLFWwindow* window)
 		}
 	}
 
-	ImGui::SliderFloat3("Cam Pos", camPos, -400.f, 400.f);
-	ImGui::SliderFloat("Scale", &mScale, -1.0f, +1.0f);
-	ImGui::Checkbox("AABB", &enableAABB);
-	ImGui::Checkbox("Dynamic", &enableDynamic);
-	ImGui::Checkbox("BVH", &enableBVH);
+	if (ImGui::Checkbox("Show Rendering/Collision", &renderingOrCollision)) {
+		if (!renderingOrCollision) {
+			enableDynamic = cachedEnableDynamic;
+		}
+		else {
+			cachedEnableDynamic = enableDynamic;
+			enableDynamic = false;
+		}
+	}
+
+	
+	ImGui::SliderFloat3("Cam Pos", camPos, -400.f, 10000.f);
+	//ImGui::SliderFloat("Scale", &mScale, -1.0f, +1.0f);
+
+	if (!renderingOrCollision) {
+		ImGui::Checkbox("AABB", &enableAABB);
+		ImGui::Checkbox("Dynamic", &enableDynamic);
+		ImGui::Checkbox("BVH", &enableBVH);
+	}
 
 	static int mode = 0;
 	ImGui::RadioButton("Rest pose", &mode, 0);
-	ImGui::RadioButton("LBS Instanced", &mode, 1);
-	ImGui::RadioButton("Debug", &mode, 2);
-	ImGui::RadioButton("LBS Texture", &mode, 3);
+	ImGui::RadioButton("Skinned Instanced", &mode, 1);
 
 	ImGui::SliderInt("Animation Index", &currentAnimationIndex, 0, 2);
 
@@ -385,55 +384,74 @@ void display(GLFWwindow* window)
 	//Set uniforms
 	glUniform1i(UniformLoc::AnimTexHeight, height);
 	glUniform1i(UniformLoc::AnimTexWidth, width);
-	glUniform1i(UniformLoc::type, 1);
 
 	// update instance model attribute
-	vector<glm::mat4> model_matrix_data;
-	for (int i = 0; i < INSTANCE_NUM; i++)
-	{
-		glm::mat4 trans = glm::translate(glm::mat4(1.f), objects[i].currPos);
-		model_matrix_data.push_back(trans);
-	}
-
-	// update mesh positions
-	glBindBuffer(GL_ARRAY_BUFFER, model_matrix_buffer);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, INSTANCE_NUM * sizeof(glm::mat4), model_matrix_data.data());
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-	//Draw the skinned mesh
-	glBindVertexArray(mesh_data.m_VAO);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-	mesh_data.RenderInstanced(INSTANCE_NUM);
-	glBindVertexArray(0);
-
-	// draw bounding box
-	if (enableAABB)
-	{
+	
+	if (!renderingOrCollision) {
 		for (int i = 0; i < INSTANCE_NUM; i++)
 		{
-			glBindVertexArray(aabbVAOs[i]);
-			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-			glUniform1i(UniformLoc::type, 2);
-			glDrawArrays(GL_QUADS, 0, 24);
-			glBindVertexArray(0);
+			glm::mat4 trans = glm::translate(glm::mat4(1.f), objects[i].currPos);
+			model_matrix_data[i] = trans;
 		}
+
+		// update mesh positions
+		glBindBuffer(GL_ARRAY_BUFFER, model_matrix_buffer);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, INSTANCE_NUM * sizeof(glm::mat4), model_matrix_data.data());
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		mesh_data.RenderInstanced(INSTANCE_NUM);
+	}
+	else {
+		glBindBuffer(GL_ARRAY_BUFFER, model_matrix_buffer);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, 300000 * sizeof(glm::mat4), model_matrix_data_rendering.data());
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		mesh_data.RenderInstanced(300000);
 	}
 
-	// draw bvh
-	if (enableBVH)
-	{
-		bvh->drawBVH();
+
+	//Draw the skinned mesh
+	
+
+	if (!renderingOrCollision) {
+
+		glUseProgram(bounding_shader_program);
+		// draw bounding box
+		if (enableAABB)
+		{
+			for (int i = 0; i < INSTANCE_NUM; i++)
+			{
+				glBindVertexArray(aabbVAOs[i]);
+				glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+				glDrawArrays(GL_QUADS, 0, 24);
+				glBindVertexArray(0);
+			}
+		}
+
+		// draw bvh
+		if (enableBVH)
+		{
+			bvh->drawBVH();
+		}
+
 	}
 
+	glUseProgram(ground_shader_program);
 	// draw arena plane
-	glm::mat4 M = glm::translate(glm::mat4(1.0), glm::vec3(0.0, 0.0, -4.0)) * glm::scale(glm::mat4(1.0), glm::vec3(100.0));
-	glUniformMatrix4fv(UniformLoc::M, 1, false, glm::value_ptr(M));
+	
+	glm::mat4 M = glm::translate(glm::mat4(1.0), glm::vec3(0.0, 0.0, -4.0)) * glm::scale(glm::mat4(1.0), glm::vec3(10000.0));
+	glUniformMatrix4fv(0, 1, false, glm::value_ptr(M));
+
 	glBindVertexArray(attribless_arena_vao);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-	glUniform1i(UniformLoc::type, 3);
+
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 	glBindVertexArray(0);
 
+	glUseProgram(shader_program);
+	
 	draw_gui(window);
 
 	if (recording == true)
@@ -448,6 +466,7 @@ void display(GLFWwindow* window)
 
 	/* Swap front and back buffers */
 	glfwSwapBuffers(window);
+
 }
 
 void idle()
@@ -466,7 +485,7 @@ void idle()
 	glUniform1f(UniformLoc::Time, time_sec);
 	glUniform1i(UniformLoc::FrameNumber, currentFrame);
 	currentFrame += 1;
-	currentFrame = currentFrame % 150;// mesh_data.getCurrentAnimationIndexFrames();
+	//currentFrame = currentFrame % 150;// mesh_data.getCurrentAnimationIndexFrames();
 	if (currentFrame % 100 == 0) {
 		cout << "Current Frame " << currentFrame << endl;
 	}
@@ -487,6 +506,9 @@ void idle()
 void reload_shader()
 {
 	GLuint new_shader = InitShader(vertex_shader.c_str(), fragment_shader.c_str());
+	GLuint ground_new_shader = InitShader(ground_vertex_shader.c_str(), ground_fragment_shader.c_str());
+
+	GLuint bounding_new_shader = InitShader(bounding_vertex_shader.c_str(), bounding_fragment_shader.c_str());
 
 	if (new_shader == -1) // loading failed
 	{
@@ -502,6 +524,37 @@ void reload_shader()
 		}
 		shader_program = new_shader;
 	}
+
+	if (ground_new_shader == -1) // loading failed
+	{
+		glClearColor(1.0f, 0.0f, 1.0f, 0.0f); //change clear color if shader can't be compiled
+	}
+	else
+	{
+		glClearColor(0.35f, 0.35f, 0.35f, 0.0f);
+
+		if (ground_shader_program != -1)
+		{
+			glDeleteProgram(ground_shader_program);
+		}
+		ground_shader_program = ground_new_shader;
+	}
+
+	if (bounding_new_shader == -1) // loading failed
+	{
+		glClearColor(1.0f, 0.0f, 1.0f, 0.0f); //change clear color if shader can't be compiled
+	}
+	else
+	{
+		glClearColor(0.35f, 0.35f, 0.35f, 0.0f);
+
+		if (bounding_shader_program != -1)
+		{
+			glDeleteProgram(bounding_shader_program);
+		}
+		bounding_shader_program = bounding_new_shader;
+	}
+
 }
 
 //This function gets called when a key is pressed
@@ -543,13 +596,14 @@ void resize(GLFWwindow* window, int width, int height)
 	glViewport(0, 0, width, height);
 	//Set aspect ratio used in view matrix calculation
 	aspect = float(width) / float(height);
+	camera->perspective(fov, aspect, 0.1f, 100000.f);
 }
 
 void initCamera()
 {
 	camera = new Camera(fov, aspect);
 	camera->lookAt(glm::vec3(0.0, 0.0, 3.0), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
-	camera->perspective(fov, aspect, 0.1f, 10000.f);
+	camera->perspective(fov, aspect, 0.1f, 100000.f);
 }
 
 void initBVH()
@@ -592,20 +646,32 @@ void processSceneData()
 	}
 }
 
-GLuint create_model_matrix_buffer()
+GLuint create_model_matrix_buffer(vector<glm::mat4> * matrix_data, int instanceCount, bool useObjectPos = true, bool createBuffer = true)
 {
-	vector<glm::mat4> model_matrix_data;
+	int rows = (int)std::sqrt(300000);
 
-	for (int i = 0; i < INSTANCE_NUM; i++)
-	{
-		glm::mat4 trans = glm::translate(glm::mat4(1.f), objects[i].currPos);
-		model_matrix_data.push_back(trans);
+	for (int i = 0; i < instanceCount; i++)
+	{	
+		glm::vec3 tran;
+		if (useObjectPos) 
+		{
+			tran = objects[i].currPos;
+		}
+		else
+		{
+			tran = glm::vec3(((i % rows) - 1) * 10, ((i / rows) - 1) * 10, 0);
+		}
+		glm::mat4 trans = glm::translate(glm::mat4(1.f), tran);
+		matrix_data->push_back(trans);
 	}
 
-	GLuint model_matrix_buffer;
-	glGenBuffers(1, &model_matrix_buffer);
-	glBindBuffer(GL_ARRAY_BUFFER, model_matrix_buffer);
-	glBufferData(GL_ARRAY_BUFFER, INSTANCE_NUM * sizeof(glm::mat4), model_matrix_data.data(), GL_DYNAMIC_DRAW);
+	GLuint model_matrix_buffer = -1;
+	
+	if (createBuffer) {
+		glGenBuffers(1, &model_matrix_buffer);
+		glBindBuffer(GL_ARRAY_BUFFER, model_matrix_buffer);
+		glBufferData(GL_ARRAY_BUFFER, instanceCount * sizeof(glm::mat4), matrix_data->data(), GL_DYNAMIC_DRAW);
+	}
 
 	return model_matrix_buffer;
 }
@@ -626,6 +692,8 @@ void initOpenGL()
 	std::cout << "GLSL Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
 	glEnable(GL_DEPTH_TEST);
 
+	
+
 	reload_shader();
 	mesh_data.LoadMesh(mesh_name);
 	mesh_data.generateAnimTextures(height, width, bits);
@@ -637,7 +705,9 @@ void initOpenGL()
 	glGenVertexArrays(1, &attribless_arena_vao);
 
 	// init instance model matrix attribute
-	model_matrix_buffer = create_model_matrix_buffer();
+	model_matrix_buffer = create_model_matrix_buffer(&model_matrix_data, 300000, false);
+	//model_matrix_buffer_rendering = 
+	create_model_matrix_buffer(&model_matrix_data_rendering, 300000, false, false);
 	// create instanced vertex attributes
 	glBindVertexArray(mesh_data.m_VAO);
 	glBindBuffer(GL_ARRAY_BUFFER, model_matrix_buffer);
@@ -651,7 +721,6 @@ void initOpenGL()
 		glEnableVertexAttribArray(AttribLoc::matPosInstance + i);
 		glVertexAttribDivisor(AttribLoc::matPosInstance + i, 1);
 	}
-	glBindVertexArray(0);
 
 	// init aabb box
 	glGenVertexArrays(INSTANCE_NUM, aabbVAOs);
@@ -677,8 +746,6 @@ void initOpenGL()
 
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
-
-
 
 //C++ programs start executing in the main() function.
 int main(int argc, char** argv)

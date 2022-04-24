@@ -148,5 +148,17 @@
     <None Include="instanced_skinning_vs.glsl">
       <Filter>shaders</Filter>
     </None>
+    <None Include="Plain_fs.glsl">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="Plain_vs.glsl">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="Bounding_vs.glsl">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="Bounding_fs.glsl">
+      <Filter>shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

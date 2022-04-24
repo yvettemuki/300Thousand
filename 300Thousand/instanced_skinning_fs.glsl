@@ -38,46 +38,30 @@ out vec4 fragcolor; //the output color for this fragment
 
 void main(void)
 {   
-    if (type == 1)
-    {
-        //Compute per-fragment Phong lighting
-       vec4 ktex = texture(color_tex, inData.tex_coord);
+    //Compute per-fragment Phong lighting
+    vec4 ktex = texture(color_tex, inData.tex_coord);
 
-       if(Mode==2)
-       {
-          const vec4 debug_color = vec4(1.0, 0.0, 0.35, 1.0);
-          ktex = mix(ktex, debug_color, inData.w_debug);
-       }
+    if(Mode==2)
+    {
+        const vec4 debug_color = vec4(1.0, 0.0, 0.35, 1.0);
+        ktex = mix(ktex, debug_color, inData.w_debug);
+    }
 	
-       vec4 ambient_term = ka*ktex*La;
+    vec4 ambient_term = ka*ktex*La;
 
-       const float eps = 1e-8; //small value to avoid division by 0
-       float d = distance(light_w.xyz, inData.pw.xyz);
-       float atten = 1.0; 
+    const float eps = 1e-8; //small value to avoid division by 0
+    float d = 1.0f;// distance(light_w.xyz, inData.pw.xyz);
+    float atten = 1.0; 
 
-       vec3 nw = normalize(inData.nw);			//world-space unit normal vector
-       vec3 lw = normalize(light_w.xyz - inData.pw.xyz);	//world-space unit light vector
-       vec4 diffuse_term = atten*kd*ktex*Ld*max(0.0, dot(nw, lw));
+    vec3 nw = normalize(inData.nw);			//world-space unit normal vector
+    vec3 lw = normalize(vec3(light_w));// normalize(light_w.xyz - inData.pw.xyz);	//world-space unit light vector
+    vec4 diffuse_term = atten*kd*ktex*Ld*max(0.0, dot(nw, lw));
 
-       vec3 vw = normalize(eye_w.xyz - inData.pw.xyz);	//world-space unit view vector
-       vec3 rw = reflect(-lw, nw);	//world-space unit reflection vector
+    vec3 vw = normalize(eye_w.xyz - inData.pw.xyz);	//world-space unit view vector
+    vec3 rw = reflect(-lw, nw);	//world-space unit reflection vector
 
-       vec4 specular_term = atten*ks*Ls*pow(max(0.0, dot(rw, vw)), shininess);
+    vec4 specular_term = atten*ks*Ls*pow(max(0.0, dot(rw, vw)), shininess);
 
-       fragcolor = ambient_term + diffuse_term + specular_term;
-    }
-
-    if (type == 2)
-    {
-        // bounding box
-        fragcolor = vec4(0, 0, 0, 1);
-    }
-
-    if (type == 3)
-    {
-        // arena plane
-		fragcolor = vec4(0.325, 0.411, 0.462, 1.0);
-    }
-   
+    fragcolor = ambient_term + diffuse_term + specular_term;
 }
 
