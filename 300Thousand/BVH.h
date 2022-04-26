@@ -15,7 +15,7 @@ using namespace std;
 using namespace glm;
 
 /*
- when node is root, its parentNode = -1, when node is leave, its childnode = -1, -1 equals null
+ when node is root, its parentNode = -1, when node is leaf, its childnode = -1, -1 equals null
 */
 
 struct BVHNode
@@ -39,10 +39,12 @@ public:
 	void addNode(SceneObject object);
 	void updateNode(int addIndex, int parnetIndex);
 	void updateBVH();
+	void traverseBVHByLayer(int index, int curr_layer, int target_layer);
 	void traverseBVH(int index);
 	int findClosestNode(AABB aabb, int nodeIndex);
 	void refitParentAABBInBVH(int node_2_parent_index);
 	void drawBVH();
+	void drawBVHInLayer(int layer);
 	vector<int> CollisionDetection(AABB aabb, int sceneIndex);
 	void searchCollision(AABB aabb, int nodeIndex, int searchNodeIndex, vector<int>& collisions);
 	int getRootIndex();
@@ -51,6 +53,7 @@ public:
 
 	GLuint vaos[INSTANCE_NUM - 1];
 	GLuint vbos[INSTANCE_NUM - 1];
+	int draw_status[2 * INSTANCE_NUM - 1] = {0};
 
 private:
 	vector<BVHNode> bvhNodes;

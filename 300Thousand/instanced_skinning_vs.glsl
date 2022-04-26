@@ -7,7 +7,7 @@ layout(location = 5) uniform int frame_number = 0;
 layout(location = 6) uniform int animTexHeight = 256;
 layout(location = 7) uniform int animTexWidth = 256;
 layout(location = 8) uniform int animationIndex = 0;
-layout(location = 9) uniform int type;
+//layout(location = 9) uniform int type;
 
 
 // quad for the arena ground plane

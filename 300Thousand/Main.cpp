@@ -64,6 +64,7 @@ Camera* camera;
 // Attribute Less
 GLuint attribless_arena_vao = -1;
 
+const int collisionTypeLoc = 0;
 bool renderingOrCollision = false; //true = rendering
 
 // IMGUI 
@@ -77,6 +78,8 @@ bool recording = false;
 bool enableAABB = false;
 bool enableBVH = false;
 bool enableDynamic = false;
+int layer = 0;
+bool isShowLayer = false;
 
 // IDs for BVH and AABB
 //GLuint model_matrix_buffer_rendering = -1;
@@ -147,14 +150,16 @@ void collisionDetection()
 	{
 		for (int j = i + 1; j < INSTANCE_NUM; j++)
 		{
-			/*AABB aabb_1 = objects[i].aabb.update(objects[i].currPos);
-			AABB aabb_2 = objects[j].aabb.update(objects[j].currPos);*/
 			AABB aabb_1 = objects[i].aabb;
 			AABB aabb_2 = objects[j].aabb;
 
 			if (aabb_1.overlap(aabb_2))
 			{
-				// difference of distance in x and z
+				// change the uniform collision status
+				objects[i].collisionStatus = 1;
+				objects[j].collisionStatus = 1;
+
+				// difference of distance in x and y
 				glm::vec3 deltaArea = aabb_1.intersection(aabb_2);
 
 				// update position
@@ -190,6 +195,12 @@ void collisionDetection()
 				objects[i].aabb.update(objects[i].currPos, scale);
 				objects[j].aabb.update(objects[j].currPos, scale);
 
+			}
+			else
+			{
+				// set the uniform collision status
+				objects[i].collisionStatus = objects[i].collisionStatus == 1 ? 1 : 0;
+				objects[j].collisionStatus = objects[j].collisionStatus == 1 ? 1 : 0;
 			}
 		}
 	}
@@ -246,6 +257,9 @@ void updatePositions()
 		//glm::vec3 scale = glm::vec3(mScale * mesh_data.mScaleFactor);
 		glm::vec3 scale = glm::vec3(1.f);
 		objects[i].aabb.update(objects[i].currPos, scale);
+
+		// reset the collision status
+		objects[i].collisionStatus = 0;
 	}
 }
 
@@ -263,7 +277,6 @@ void updateBoundingBox()
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 	}
 
-	// update bvh (!! not work because the aabb is not update)
 	delete bvh;
 	bvh = new BVH(objects);
 }
@@ -337,13 +350,18 @@ void draw_gui(GLFWwindow* window)
 	}
 
 	
-	ImGui::SliderFloat3("Cam Pos", camPos, -400.f, 10000.f);
+	ImGui::SliderFloat3("Cam Pos", camPos, -400.f, 400.f);
 	//ImGui::SliderFloat("Scale", &mScale, -1.0f, +1.0f);
 
 	if (!renderingOrCollision) {
 		ImGui::Checkbox("AABB", &enableAABB);
 		ImGui::Checkbox("Dynamic", &enableDynamic);
-		ImGui::Checkbox("BVH", &enableBVH);
+		ImGui::Checkbox("BVH", &enableBVH); ImGui::SameLine();
+		ImGui::Checkbox("Show In Layer", &isShowLayer);
+		if (isShowLayer)
+		{
+			ImGui::SliderInt("BVH Layer", &layer, 0, 20);
+		}
 	}
 
 	static int mode = 0;
@@ -424,6 +442,7 @@ void display(GLFWwindow* window)
 			for (int i = 0; i < INSTANCE_NUM; i++)
 			{
 				glBindVertexArray(aabbVAOs[i]);
+				glUniform1i(collisionTypeLoc, objects[i].collisionStatus);
 				glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 				glDrawArrays(GL_QUADS, 0, 24);
 				glBindVertexArray(0);
@@ -433,7 +452,10 @@ void display(GLFWwindow* window)
 		// draw bvh
 		if (enableBVH)
 		{
-			bvh->drawBVH();
+			if (isShowLayer)
+				bvh->drawBVHInLayer(layer);
+			else
+				bvh->drawBVH();
 		}
 
 	}
@@ -609,7 +631,7 @@ void initCamera()
 void initBVH()
 {
 	bvh = new BVH(objects);
-	bvh->traverseBVH(bvh->getRootIndex());
+	//bvh->traverseBVH(bvh->getRootIndex());
 }
 
 void processSceneData()

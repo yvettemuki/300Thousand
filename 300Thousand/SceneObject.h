@@ -22,5 +22,6 @@ public:
 	vec3 prevPos;
 	vec3 velocity;
 	AABB aabb;
+	int collisionStatus = 0;  //default is 0, and if collision, then set to 1
 
 };

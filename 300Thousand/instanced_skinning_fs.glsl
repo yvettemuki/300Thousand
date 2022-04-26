@@ -2,7 +2,7 @@
 layout(binding = 0) uniform sampler2D color_tex; 
 layout(location = 1) uniform float time;
 layout(location = 3) uniform int Mode;
-layout(location = 9) uniform int type;
+//layout(location = 9) uniform int type;
 
 layout(std140, binding = 0) uniform SceneUniforms
 {

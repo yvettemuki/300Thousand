@@ -31,8 +31,9 @@ BVH::BVH(vector<SceneObject> objects)
 
 BVH::~BVH()
 {
-	glDeleteVertexArrays(INSTANCE_NUM, vaos);
-	glDeleteBuffers(INSTANCE_NUM, vbos);
+	glDeleteVertexArrays(INSTANCE_NUM - 1, vaos);
+	glDeleteBuffers(INSTANCE_NUM - 1, vbos);
+	std::fill_n(draw_status, INSTANCE_NUM - 1, 0);
 }
 
 void BVH::addNode(SceneObject object)
@@ -185,6 +186,24 @@ void BVH::refitParentAABBInBVH(int nodeIndex)
 		refitParentAABBInBVH(bvhNodes[nodeIndex].parentNode);
 }
 
+void BVH::traverseBVHByLayer(int index, int curr_layer, int target_layer)
+{
+	if (curr_layer == target_layer && bvhNodes[index].indexMapToScene == -1)
+	{
+		// set the layer mark
+		draw_status[index] = 1;
+		return;
+	}
+
+	if (bvhNodes[index].indexMapToScene == -1)
+	{
+		// branch node
+		traverseBVHByLayer(bvhNodes[index].leftChildNode, curr_layer + 1, target_layer);
+		traverseBVHByLayer(bvhNodes[index].rightChildNode, curr_layer + 1, target_layer);
+	}
+	
+}
+
 void BVH::traverseBVH(int index)
 {
 	// print node
@@ -201,7 +220,6 @@ void BVH::traverseBVH(int index)
 		traverseBVH(bvhNodes[index].leftChildNode);
 		traverseBVH(bvhNodes[index].rightChildNode);
 	}
-	
 }
 
 // should access whether draw the bvh
@@ -394,6 +412,25 @@ void BVH::drawBVH()
 		glDrawArrays(GL_QUADS, 0, 24);
 		glBindVertexArray(0);
 	}
+}
+
+void BVH::drawBVHInLayer(int draw_layer)
+{
+	// set the layer mark
+	traverseBVHByLayer(rootIndex, 0, draw_layer);
+
+	for (int i = 0; i < INSTANCE_NUM - 1; i++)
+	{
+		if (draw_status[2*i + 2] == 1)
+		{
+			glBindVertexArray(vaos[i]);
+			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+			//glDrawArrays(GL_TRIANGLES, 0, 36);
+			glDrawArrays(GL_QUADS, 0, 24);
+			glBindVertexArray(0);
+		}
+	}
+
 }
 
 int BVH::getRootIndex()
